@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Camera,
   QrCode,
@@ -10,7 +10,12 @@ import {
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
-import { Card, CardContent } from "../components/ui/card";
+import {
+  Card,
+  CardContent,
+  // CardHeader,
+  // CardTitle,
+} from "../components/ui/card";
 import {
   Tabs,
   TabsContent,
@@ -18,46 +23,109 @@ import {
   TabsTrigger,
 } from "../components/ui/tabs";
 import { Link } from "react-router-dom";
-// import { QrReader } from "@blackbox-vision/react-qr-reader"; 
-// did npm i --force
+import { verifyTicket } from "../lib/api";
+import { Html5Qrcode } from "html5-qrcode";
+
+type TicketData = {
+  id: string;
+  owner_address: string;
+  events: {
+    name: string;
+  };
+};
 
 export default function TicketVerificationPage() {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [activeTab, setActiveTab] = useState("camera"); 
-  console.log("activeTab", activeTab);
+  const [activeTab, setActiveTab] = useState("camera");
+  console.log(activeTab)
   const [isScanning, setIsScanning] = useState(false);
   const [verificationResult, setVerificationResult] = useState<
     "valid" | "invalid" | null
   >(null);
   const [ticketCode, setTicketCode] = useState("");
   const [cameraError, setCameraError] = useState<string | null>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const streamRef = useRef<MediaStream | null>(null);
+  const [ticketData, setTicketData] = useState<TicketData | null>(null); // this needs to be typed and gotten from the API
+  const [error, setError] = useState<string | null>(null);
+
+  const scannerRef = useRef<Html5Qrcode | null>(null);
+  const scannerContainerId = "qr-reader";
+
+  // Clean up scanner when component unmounts
+  useEffect(() => {
+    return () => {
+      if (scannerRef.current && isScanning) {
+        scannerRef.current.stop().catch((error) => {
+          console.error("Error stopping scanner:", error);
+        });
+      }
+    };
+  }, [isScanning]);
 
   const startScanning = async () => {
     try {
       setCameraError(null);
-      setIsScanning(true);
+      setError(null);
 
-      // Request camera access
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "environment" },
-      });
-
-      streamRef.current = stream;
-
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
+      if (!scannerRef.current) {
+        scannerRef.current = new Html5Qrcode(scannerContainerId);
       }
 
-      // In a real app, you would implement QR code scanning here
-      // For demo purposes, we'll simulate a successful scan after 3 seconds
-      setTimeout(() => {
-        stopScanning();
-        setVerificationResult("valid");
-      }, 3000);
+      const qrCodeSuccessCallback = async (decodedText: string) => {
+        try {
+          console.log("QR Code detected:", decodedText);
+
+          // Stop scanning
+          await stopScanning();
+
+          // Try to parse the QR code data
+          let ticketId;
+          try {
+            // First try to parse as JSON
+            const parsedData = JSON.parse(decodedText);
+            ticketId = parsedData.id || parsedData.ticketId;
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          } catch (e) {
+            // If not JSON, use the raw text as ticket ID
+            ticketId = decodedText;
+          }
+
+          if (!ticketId) {
+            throw new Error("Invalid QR code format. No ticket ID found.");
+          }
+
+          // Verify the ticket using the API
+          const verification = await verifyTicket(ticketId);
+
+          setTicketData(verification.ticket);
+          setVerificationResult("valid");
+        } catch (err) {
+          console.error("Error processing QR code:", err);
+          setVerificationResult("invalid");
+          if (err instanceof Error) {
+            setError(err instanceof Error ? err.message : "Failed to verify ticket");
+          } else {
+            setError("Failed to verify ticket");
+          }
+        }
+      };
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const qrCodeErrorCallback = (error: any) => {
+        console.error("QR Code scanning error:", error);
+        setCameraError(error.toString());
+      };
+
+      const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+
+      await scannerRef.current.start(
+        { facingMode: "environment" },
+        config,
+        qrCodeSuccessCallback,
+        qrCodeErrorCallback
+      );
+
+      setIsScanning(true);
     } catch (error) {
-      console.error("Error accessing camera:", error);
+      console.error("Error starting scanner:", error);
       setCameraError(
         "Could not access camera. Please ensure you've granted camera permissions."
       );
@@ -65,28 +133,32 @@ export default function TicketVerificationPage() {
     }
   };
 
-  const stopScanning = () => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => track.stop());
-      streamRef.current = null;
+  const stopScanning = async () => {
+    if (scannerRef.current && isScanning) {
+      try {
+        await scannerRef.current.stop();
+        setIsScanning(false);
+      } catch (error) {
+        console.error("Error stopping scanner:", error);
+      }
     }
-
-    if (videoRef.current) {
-      videoRef.current.srcObject = null;
-    }
-
-    setIsScanning(false);
   };
 
-  const verifyManualCode = () => {
-    if (ticketCode.trim() === "") return;
+  const verifyManualCode = async () => {
+    if (!ticketCode.trim()) return;
 
-    // In a real app, this would verify the ticket code against the blockchain
-    // For demo purposes, we'll simulate verification based on input
-    if (ticketCode.startsWith("0x") || ticketCode.length > 8) {
+    try {
+      setError(null);
+
+      // Verify the ticket using the API
+      const verification = await verifyTicket(ticketCode);
+
+      setTicketData(verification.ticket);
       setVerificationResult("valid");
-    } else {
+    } catch (err) {
+      console.error("Error verifying ticket:", err);
       setVerificationResult("invalid");
+      setError(err instanceof Error ? err.message : "Failed to verify ticket");
     }
   };
 
@@ -94,17 +166,9 @@ export default function TicketVerificationPage() {
     setVerificationResult(null);
     setTicketCode("");
     setCameraError(null);
+    setError(null);
+    setTicketData(null);
   };
-
-  // Clean up camera stream when component unmounts
-  useEffect(() => {
-    return () => {
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach((track) => track.stop());
-      }
-    };
-  }, []);
-  
 
   return (
     <div className="container max-w-md py-12">
@@ -136,30 +200,42 @@ export default function TicketVerificationPage() {
                     </h2>
 
                     <div className="w-full bg-muted/30 rounded-lg p-4 text-left space-y-3">
-                      <div>
-                        <p className="text-xs text-muted-foreground">Event</p>
-                        <p className="font-medium">Web3 Conference 2023</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-muted-foreground">
-                          Ticket ID
-                        </p>
-                        <p className="font-mono text-sm">
-                          {ticketCode || "0x1a2b3c4d5e6f7a8b"}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-muted-foreground">Owner</p>
-                        <p className="font-mono text-sm truncate">
-                          0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-muted-foreground">Status</p>
-                        <p className="font-medium text-emerald-500">
-                          Valid - First Entry
-                        </p>
-                      </div>
+                      {ticketData && (
+                        <>
+                          <div>
+                            <p className="text-xs text-muted-foreground">
+                              Event
+                            </p>
+                            <p className="font-medium">
+                              {ticketData.events?.name || "Event Name"}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-muted-foreground">
+                              Ticket ID
+                            </p>
+                            <p className="font-mono text-sm">
+                              {ticketData.id || ticketCode}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-muted-foreground">
+                              Owner
+                            </p>
+                            <p className="font-mono text-sm truncate">
+                              {ticketData.owner_address || "Owner Address"}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-muted-foreground">
+                              Status
+                            </p>
+                            <p className="font-medium text-emerald-500">
+                              Valid - First Entry
+                            </p>
+                          </div>
+                        </>
+                      )}
                     </div>
                   </>
                 ) : (
@@ -171,7 +247,8 @@ export default function TicketVerificationPage() {
                       Invalid Ticket
                     </h2>
                     <p className="text-muted-foreground">
-                      This ticket is invalid or has already been used.
+                      {error ||
+                        "This ticket is invalid or has already been used."}
                     </p>
                   </>
                 )}
@@ -212,30 +289,25 @@ export default function TicketVerificationPage() {
 
               <TabsContent value="camera" className="p-6 space-y-4">
                 <div className="relative bg-muted/30 rounded-lg aspect-square overflow-hidden flex flex-col items-center justify-center">
-                  {isScanning ? (
-                    <video
-                      ref={videoRef}
-                      autoPlay
-                      playsInline
-                      className="absolute inset-0 w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="text-center p-6">
-                      <Camera className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
-                      <p className="text-muted-foreground">
-                        Camera preview will appear here
-                      </p>
-                      {cameraError && (
-                        <p className="mt-2 text-sm text-destructive">
-                          {cameraError}
+                  <div id={scannerContainerId} className="w-full h-full">
+                    {!isScanning && (
+                      <div className="absolute inset-0 flex flex-col items-center justify-center bg-background z-10 p-6">
+                        <Camera className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
+                        <p className="text-muted-foreground text-center">
+                          Camera preview will appear here
                         </p>
-                      )}
-                    </div>
-                  )}
+                        {cameraError && (
+                          <p className="mt-2 text-sm text-destructive text-center">
+                            {cameraError}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
 
                   {isScanning && (
-                    <div className="absolute inset-0 border-2 border-blue-500 z-10 flex items-center justify-center">
-                      <div className="w-1/2 h-1/2 border-2 border-white/70 rounded-lg"></div>
+                    <div className="absolute inset-0 pointer-events-none">
+                      <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-64 h-64 border-2 border-white/70 rounded-lg"></div>
                     </div>
                   )}
                 </div>
