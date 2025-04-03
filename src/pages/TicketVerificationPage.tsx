@@ -18,8 +18,8 @@ import {
   TabsTrigger,
 } from "../components/ui/tabs";
 import { Link } from "react-router-dom";
-// import { verifyTicket } from "../lib/zora";
 // import { QrReader } from "@blackbox-vision/react-qr-reader"; 
+// did npm i --force
 
 export default function TicketVerificationPage() {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
