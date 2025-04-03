@@ -120,7 +120,7 @@ export async function purchaseTickets(collectionAddress, quantity, price) {
       value: totalPrice,
     });
 
-    console.log("Transaction submitted:", tx.hash);
+    console.log("Transaction submitted:", tx.hash); 
     const receipt = await tx.wait();
     console.log("Transaction confirmed:", receipt);
 
