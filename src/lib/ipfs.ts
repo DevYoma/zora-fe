@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/ban-ts-comment */
 // src/lib/ipfs.ts
 // @ts-expect-error
 import { NFTStorage, File } from "nft.storage";

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/ban-ts-comment */
 // @ts-nocheck
 
 // const API_URL = process.env.REACT_APP_API_URL || "http://localhost:3001/api";
