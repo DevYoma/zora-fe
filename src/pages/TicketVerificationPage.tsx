@@ -19,11 +19,11 @@ import {
 } from "../components/ui/tabs";
 import { Link } from "react-router-dom";
 // import { verifyTicket } from "../lib/zora";
-// import { QrReader } from "react-qr-reader";
+// import { QrReader } from "@blackbox-vision/react-qr-reader"; 
 
 export default function TicketVerificationPage() {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [activeTab, setActiveTab] = useState("camera");
+  const [activeTab, setActiveTab] = useState("camera"); 
   console.log("activeTab", activeTab);
   const [isScanning, setIsScanning] = useState(false);
   const [verificationResult, setVerificationResult] = useState<
