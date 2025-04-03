@@ -10,7 +10,6 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@blackbox-vision/react-qr-reader": "^5.0.0",
     "@zoralabs/zora-721-contracts": "^1.15.4",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
