@@ -16,7 +16,9 @@ import { useNavigate } from "react-router-dom";
 // import { uploadToIPFS } from "../lib/ipfs";
 
 // api call import to createEvent in api.js
-import { createEvent } from "../lib/api";
+import { API_URL, createEvent } from "../lib/api";
+// import { uploadEventImage } from "../service/uploadService";
+// import { uploadEventImage } from "../service/uploadService.js";
 
 export default function EventCreationPage() {
   const [eventData, setEventData] = useState<{
@@ -43,12 +45,18 @@ export default function EventCreationPage() {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [uploadError, setUploadError] = useState<null | string>(null);
   const [error, setError] = useState(null);
   const [collectionAddress, setCollectionAddress] = useState("");
+  const [uploadProgress, setUploadProgress] = useState(0);
+
   const navigate = useNavigate();
 
   const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+    >
   ) => {
     const { name, value } = e.target;
     setEventData((prev) => ({
@@ -69,18 +77,71 @@ export default function EventCreationPage() {
     }
   };
 
+  // Update the upload function
+  interface UploadResponse {
+    url: string;
+  }
+
+  const uploadWithProgress = async (
+    file: File,
+    eventName: string
+  ): Promise<string> => {
+    const formData = new FormData();
+    formData.append("image", file);
+    formData.append("eventName", eventName);
+
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+
+      xhr.upload.addEventListener("progress", (event: ProgressEvent) => {
+        if (event.lengthComputable) {
+          const percentComplete = Math.round(
+            (event.loaded / event.total) * 100
+          );
+          setUploadProgress(percentComplete);
+        }
+      });
+
+      xhr.addEventListener("load", () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          const response: UploadResponse = JSON.parse(xhr.responseText);
+          resolve(response.url);
+        } else {
+          reject(new Error("Upload failed"));
+        }
+      });
+
+      xhr.addEventListener("error", () => {
+        reject(new Error("Network error"));
+      });
+
+      xhr.open("POST", `${API_URL}/upload/image`);
+      xhr.send(formData);
+    });
+  };
+
   // After creating the Zora collection on the blockchain
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
     setError(null);
+    setUploadError(null);
 
     try {
       // 1. Upload image to IPFS (you'll need to implement this)
       let imageUrl = "";
       if (eventData.image) {
         // Upload to IPFS or your preferred storage
-        imageUrl = "https://example.com/placeholder.jpg"; // Replace with actual upload
+        try {
+          // imageUrl = await uploadEventImage(eventData.image, eventData.name);
+          imageUrl = await uploadWithProgress(eventData.image, eventData.name) as string;
+          console.log("Image uploaded successfully:", imageUrl);
+        } catch (error) {
+          console.error("Image upload failed:", error);
+          setUploadError("Failed to upload image. Please try again.");
+          setIsSubmitting(false);
+          return;
+        }
       }
 
       // 2. Create Zora collection (mock for now)
@@ -430,6 +491,22 @@ export default function EventCreationPage() {
         {error && (
           <div className="mt-4 p-4 bg-destructive/10 border border-destructive/30 rounded-lg text-destructive">
             {error}
+          </div>
+        )}
+        {uploadError && (
+          <div className="bg-destructive/10 border border-destructive text-destructive p-3 rounded-md">
+            {uploadError}
+          </div>
+        )}
+        {isSubmitting && eventData.image && (
+          <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700 mt-2">
+            <div
+              className="bg-blue-600 h-2.5 rounded-full"
+              style={{ width: `${uploadProgress}%` }}
+            ></div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Uploading image: {uploadProgress}%
+            </p>
           </div>
         )}
       </div>
