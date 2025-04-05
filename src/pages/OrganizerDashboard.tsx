@@ -8,12 +8,9 @@ import {
   Users,
   Ticket,
   BarChart3,
-  Download,
   ArrowUpRight,
-  // ArrowDownRight,
   DollarSign,
   Filter,
-  Clock,
 } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
@@ -35,22 +32,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "../components/ui/dropdown-menu";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "../components/ui/table";
-// import { getEvents, getTicketsByOwner } from "../lib/api";
-import { getEvents } from "../lib/api";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "../components/ui/dialog";
+import { API_URL } from "../lib/api";
 
 export type Event = {
   id: string;
@@ -68,7 +50,9 @@ export type Event = {
   transaction_hash: string;
   created_at: string;
   updated_at: string;
-}
+  ticketsSold: number;
+  uniqueAttendees: number;
+};
 
 type Attendee = {
   id: string;
@@ -84,8 +68,8 @@ export default function OrganizerDashboard() {
   const [attendees, setAttendees] = useState<Attendee[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
-  const [showEventDetails, setShowEventDetails] = useState(false);
+  const [totalRevenueNumber, setTotalRevenueNumber] = useState(0);
+  const [totalTicketsSold, setTotalTicketsSold] = useState(0);
   const navigate = useNavigate();
 
   // Fetch events from the API
@@ -93,56 +77,41 @@ export default function OrganizerDashboard() {
     async function fetchEvents() {
       try {
         setLoading(true);
-        const eventsData: Event[] = await getEvents();
+        const response = await fetch(`${API_URL}/tickets/events`);
+        if (!response.ok) {
+          throw new Error("Failed to fetch events");
+        }
+
+        const eventsData = await response.json();
         setEvents(eventsData);
 
         // Calculate dashboard stats
-        if (eventsData.length > 0) {
-          // In a real app, you would fetch attendees for each event
-          // For now, we'll use mock data
-            type Attendee = {
-              id: string;
-              name: string;
-              wallet: string;
-              event: string;
-              purchaseDate: string;
-            };
-            const mockAttendees: Attendee[] = [];
-            interface Event {
-            id: string;
-            name: string;
-            ticket_quantity: number;
-            available_tickets: number;
-            created_at: string;
-            }
+        const totalRevenue = eventsData.reduce((sum: number, event: Event): number => {
+          const ticketPriceInEth: number = event.ticket_price / 1e18; // Convert ticket price from Wei to ETH
+          return sum + event.ticketsSold * ticketPriceInEth;
+        }, 0);
 
-            interface MockAttendee {
-            id: string;
-            name: string;
-            wallet: string;
-            event: string;
-            purchaseDate: string;
-            }
+        const totalTicketsSold = eventsData.reduce((sum: number, event: Event): number => {
+          return sum + event.ticketsSold;
+        }, 0);
 
-            eventsData.forEach((event: Event) => {
-            const soldTickets = event.ticket_quantity - event.available_tickets;
-            for (let i = 0; i < Math.min(soldTickets, 5); i++) {
-              mockAttendees.push({
-              id: `${event.id}-${i}`,
-              name: `Attendee ${i + 1}`,
-              wallet: `0x${Math.random()
-                .toString(16)
-                .substring(2, 10)}...${Math.random()
-                .toString(16)
-                .substring(2, 6)}`,
-              event: event.name,
-              purchaseDate: new Date(event.created_at).toLocaleDateString(),
-              } as MockAttendee);
-            }
-            });
-          console.log(attendees);
-          setAttendees(mockAttendees);
+        setTotalRevenueNumber(totalRevenue.toFixed(2));
+        setTotalTicketsSold(totalTicketsSold);
+
+        // Extract attendees data
+        interface AttendeeData extends Attendee {
+          wallet: string;
+          purchaseDate: string;
         }
+
+        const attendeesData: AttendeeData[] = eventsData.map((event: Event) => ({
+          id: event.id,
+          name: event.name,
+          wallet: "N/A", // Replace with actual wallet data if available
+          event: event.name,
+          purchaseDate: new Date(event.created_at).toISOString(), // Replace with actual purchase date if available
+        }));
+        setAttendees(attendeesData);
       } catch (err) {
         console.error("Error fetching events:", err);
         setError("Failed to load events. Please try again.");
@@ -153,40 +122,12 @@ export default function OrganizerDashboard() {
 
     fetchEvents();
   }, []);
-
-    console.log(events);
-
+  console.log(attendees)
 
   // Filter events based on search term
-  const filteredEvents = events.filter((event: Event) =>
+  const filteredEvents = events.filter((event) =>
     event.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
-
-  // Filter attendees based on search term
-  const filteredAttendees = attendees.filter(
-    (attendee) =>
-      attendee.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      attendee.wallet.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      attendee.event.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  // Calculate dashboard stats
-  const totalRevenue = events
-    .reduce((sum, event) => {
-      const soldTickets = event.ticket_quantity - event.available_tickets;
-      return sum + soldTickets * event.ticket_price;
-    }, 0)
-    .toFixed(2);
-
-  const totalTicketsSold = events.reduce((sum, event) => {
-    return sum + (event.ticket_quantity - event.available_tickets);
-  }, 0);
-
-  // View event details
-  const handleViewEvent = (event: Event) => {
-    setSelectedEvent(event);
-    setShowEventDetails(true);
-  };
 
   return (
     <div className="container py-8">
@@ -225,7 +166,7 @@ export default function OrganizerDashboard() {
             <div className="flex justify-between items-start">
               <div>
                 <p className="text-muted-foreground">Total Revenue</p>
-                <h3 className="text-2xl font-bold">{totalRevenue} ETH</h3>
+                <h3 className="text-2xl font-bold">{totalRevenueNumber} ETH</h3>
                 <p className="text-xs text-emerald-500 flex items-center">
                   <ArrowUpRight className="mr-1 h-3 w-3" />
                   Updated just now
@@ -261,14 +202,19 @@ export default function OrganizerDashboard() {
             <div className="flex justify-between items-start">
               <div>
                 <p className="text-muted-foreground">Total Attendees</p>
-                <h3 className="text-2xl font-bold">{attendees.length}</h3>
+                <h3 className="text-2xl font-bold">
+                  {events.reduce(
+                    (sum, event) => sum + event.uniqueAttendees,
+                    0
+                  )}
+                </h3>
                 <p className="text-xs text-emerald-500 flex items-center">
                   <ArrowUpRight className="mr-1 h-3 w-3" />
-                  Unique wallet addresses
+                  Across {events.length} events
                 </p>
               </div>
-              <div className="bg-emerald-500/20 p-3 rounded-full">
-                <Users className="h-6 w-6 text-emerald-500" />
+              <div className="bg-green-500/20 p-3 rounded-full">
+                <Users className="h-6 w-6 text-green-500" />
               </div>
             </div>
           </CardContent>
@@ -370,14 +316,8 @@ export default function OrganizerDashboard() {
                               >
                                 View Event Page
                               </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() => handleViewEvent(event)}
-                              >
-                                View Event Details
-                              </DropdownMenuItem>
-                              <DropdownMenuItem>Edit Event</DropdownMenuItem>
                               <DropdownMenuItem>
-                                Export Attendees
+                                View Event Details
                               </DropdownMenuItem>
                               <DropdownMenuItem className="text-destructive">
                                 Cancel Event
@@ -393,8 +333,7 @@ export default function OrganizerDashboard() {
                           </div>
                           <div className="flex items-center">
                             <Users className="mr-2 h-4 w-4" />
-                            {event.ticket_quantity -
-                              event.available_tickets} / {event.ticket_quantity}{" "}
+                            {event.ticketsSold} / {event.ticket_quantity}{" "}
                             tickets sold
                           </div>
                         </div>
@@ -405,11 +344,9 @@ export default function OrganizerDashboard() {
                               Revenue:{" "}
                             </span>
                             <span className="font-medium text-emerald-500">
-                              {(
-                                (event.ticket_quantity -
-                                  event.available_tickets) *
-                                  (event.ticket_price)
-                              ).toFixed(2)}{" "}
+                              {(event.ticketsSold * event.ticket_price).toFixed(
+                                2
+                              )}{" "}
                               ETH
                             </span>
                           </div>
@@ -436,195 +373,7 @@ export default function OrganizerDashboard() {
             </CardContent>
           </Card>
         </TabsContent>
-
-        <TabsContent value="attendees">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>Attendees</CardTitle>
-              <Button variant="outline" size="sm" className="h-8">
-                <Download className="mr-2 h-4 w-4" />
-                Export CSV
-              </Button>
-            </CardHeader>
-            <CardContent>
-              {loading ? (
-                <div className="text-center py-8">
-                  <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]"></div>
-                  <p className="mt-2 text-muted-foreground">
-                    Loading attendees...
-                  </p>
-                </div>
-              ) : filteredAttendees.length === 0 ? (
-                <div className="text-center py-8">
-                  <p className="text-muted-foreground">
-                    No attendees found matching your search.
-                  </p>
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Name</TableHead>
-                        <TableHead>Wallet Address</TableHead>
-                        <TableHead>Event</TableHead>
-                        <TableHead>Purchase Date</TableHead>
-                        <TableHead className="text-right">Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {filteredAttendees.map((attendee) => (
-                        <TableRow key={attendee.id}>
-                          <TableCell className="font-medium">
-                            {attendee.name}
-                          </TableCell>
-                          <TableCell className="font-mono text-xs">
-                            {attendee.wallet}
-                          </TableCell>
-                          <TableCell>{attendee.event}</TableCell>
-                          <TableCell>{attendee.purchaseDate}</TableCell>
-                          <TableCell className="text-right">
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-8 w-8"
-                                >
-                                  <MoreHorizontal className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem>
-                                  View Details
-                                </DropdownMenuItem>
-                                <DropdownMenuItem>
-                                  Send Message
-                                </DropdownMenuItem>
-                                <DropdownMenuItem>
-                                  Verify Ticket
-                                </DropdownMenuItem>
-                                <DropdownMenuItem className="text-destructive">
-                                  Revoke Ticket
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
       </Tabs>
-
-      {/* Event Details Dialog */}
-      <Dialog open={showEventDetails} onOpenChange={setShowEventDetails}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Event Details</DialogTitle>
-          </DialogHeader>
-
-          {selectedEvent && (
-            <div className="space-y-4">
-              <div className="aspect-video w-full overflow-hidden rounded-lg">
-                <img
-                  src={
-                    selectedEvent.image_url ||
-                    "/placeholder.svg?height=300&width=600"
-                  }
-                  alt={selectedEvent.name}
-                  className="w-full h-full object-cover"
-                />
-              </div>
-
-              <div>
-                <h2 className="text-xl font-bold">{selectedEvent.name}</h2>
-                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-6 mt-2 text-muted-foreground text-sm">
-                  <div className="flex items-center">
-                    <Calendar className="mr-2 h-4 w-4" />
-                    {new Date(selectedEvent.date).toLocaleDateString()}
-                  </div>
-                  <div className="flex items-center">
-                    <Clock className="mr-2 h-4 w-4" />
-                    {selectedEvent.time}
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <h3 className="font-medium">Location</h3>
-                <p className="text-muted-foreground">
-                  {selectedEvent.location}
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <h3 className="font-medium">Description</h3>
-                <p className="text-muted-foreground">
-                  {selectedEvent.description}
-                </p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <h3 className="text-sm font-medium">Ticket Price</h3>
-                  <p className="font-bold text-emerald-500">
-                    {selectedEvent.ticket_price} ETH
-                  </p>
-                </div>
-                <div className="space-y-1">
-                  <h3 className="text-sm font-medium">Tickets Sold</h3>
-                  <p>
-                    {selectedEvent.ticket_quantity -
-                      selectedEvent.available_tickets}{" "}
-                    / {selectedEvent.ticket_quantity}
-                  </p>
-                </div>
-                <div className="space-y-1">
-                  <h3 className="text-sm font-medium">Collection Address</h3>
-                  <p className="font-mono text-xs truncate">
-                    {selectedEvent.collection_address}
-                  </p>
-                </div>
-                <div className="space-y-1">
-                  <h3 className="text-sm font-medium">Created</h3>
-                  <p>
-                    {new Date(selectedEvent.created_at).toLocaleDateString()}
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex gap-2 pt-4">
-                <Button
-                  className="flex-1 bg-blue-500 hover:bg-blue-600"
-                  onClick={() => {
-                    setShowEventDetails(false);
-                    navigate(`/event/${selectedEvent.id}`);
-                  }}
-                >
-                  View Event Page
-                </Button>
-                <Button
-                  variant="outline"
-                  className="flex-1"
-                  onClick={() =>
-                    window.open(
-                      `https://goerli.etherscan.io/address/${selectedEvent.collection_address}`,
-                      "_blank"
-                    )
-                  }
-                >
-                  View on Etherscan
-                </Button>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

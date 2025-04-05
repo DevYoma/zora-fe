@@ -316,7 +316,7 @@ export default function TicketVerificationPage() {
                     <Ticket className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                     <Input
                       id="ticket-code"
-                      placeholder="Enter ticket ID or wallet address"
+                      placeholder="Enter ticket ID"
                       value={ticketCode}
                       onChange={(e) => setTicketCode(e.target.value)}
                       className="pl-10"

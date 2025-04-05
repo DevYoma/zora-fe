@@ -13,7 +13,7 @@
     "@zoralabs/zora-721-contracts": "^1.15.4",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "ethers": "^5.7.2",
+    "ethers": "^5.8.0",
     "html5-qrcode": "^2.3.8",
     "lucide-react": "^0.485.0",
     "radix-ui": "^1.1.3",

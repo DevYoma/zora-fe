@@ -139,28 +139,26 @@ export default function TicketPurchasePage() {
     try {
       console.log("Starting ticket purchase process");
 
-      // 1. Send ETH transaction to event creator
+      // 1. Simulate sending an ETH transaction to the event creator
       const transaction = await sendTransaction(
         event.creator_address,
-        event.ticket_price
+        event.ticket_price * quantity // Multiply price by quantity
       );
 
       console.log("Transaction sent:", transaction);
 
-      // Record the purchase in your backend
-      const ticketResponse = await fetch(
-        `${API_URL}/tickets/purchase`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            eventId: id,
-            buyerAddress: walletAddress,
-            transactionHash: transaction.transactionHash,
-            price: event.ticket_price,
-          }),
-        }
-      );
+      // 2. Record the purchase in your backend
+      const ticketResponse = await fetch(`${API_URL}/tickets/purchase`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          eventId: id,
+          ownerAddress: walletAddress,
+          purchase_transaction_hash: transaction.transactionHash,
+          tokenId: Math.floor(Math.random() * 1000000), // Generate a random token ID
+          quantity, // Include the quantity of tickets purchased
+        }),
+      });
 
       if (!ticketResponse.ok) {
         const errorData = await ticketResponse.json();
@@ -170,12 +168,22 @@ export default function TicketPurchasePage() {
       const ticketData = await ticketResponse.json();
       console.log("Ticket purchase recorded:", ticketData);
 
+      // 3. Update the event state with the new ticket stats
+      setEvent((prevEvent) => {
+        if (!prevEvent) return prevEvent; // If no event, return as is
+        return {
+          ...prevEvent,
+          available_tickets: ticketData.available_tickets,
+          ticketsSold: ticketData.ticketsSold,
+        };
+      });
+
+      // 4. Update the purchased data state
       setPurchasedData({
         ticketId: ticketData.ticketId,
         transactionHash: transaction.transactionHash,
       });
 
-      setIsPurchasing(false);
       setIsPurchased(true);
     } catch (err) {
       console.error("Error purchasing tickets:", err);
@@ -187,10 +195,12 @@ export default function TicketPurchasePage() {
     } finally {
       setIsPurchasing(false);
     }
-  };
+  };  
+
 
   // const totalPrice = (Number.parseFloat(event?.ticket_price) * quantity).toFixed(3);
   const totalPrice = event ? ((event.ticket_price) * quantity).toFixed(3) : "0.000";
+  console.log(totalPrice)
 
   if (isLoading) {
     return (
