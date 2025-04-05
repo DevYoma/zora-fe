@@ -1,54 +1,51 @@
-# React + TypeScript + Vite
+# 🎨 Zora Frontend — NFT-based Event Ticketing UI
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+This is the frontend of **Zora**, a Web3-enabled event ticketing app where users can create events, purchase tickets, and verify ownership — all with a sleek, modern interface powered by Tailwind and React.
 
-Currently, two official plugins are available:
+---
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## 🧪 Pages Overview
 
-## Expanding the ESLint configuration
+### 🏠 Home Page
+Introductory page explaining the purpose of the platform.
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+### ➕ Create Event
+Organizers can:
+- Set event name
+- Set ticket price
+- Set ticket quantity
 
-```js
-export default tseslint.config({
-  extends: [
-    // Remove ...tseslint.configs.recommended and replace with this
-    ...tseslint.configs.recommendedTypeChecked,
-    // Alternatively, use this for stricter rules
-    ...tseslint.configs.strictTypeChecked,
-    // Optionally, add this for stylistic rules
-    ...tseslint.configs.stylisticTypeChecked,
-  ],
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
-```
+### ✅ Verify Ticket
+Manually input or scan a Ticket ID to check ticket authenticity.
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+### 📈 Organizer Dashboard
+Get live metrics:
+- Revenue (in progress)
+- Tickets sold
+- Total attendees
+- Event list with view buttons
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+### 📄 Event Detail Page
+Buy tickets:
+- Shows ticket availability
+- Dynamic price based on quantity
+- Auto-calculated total price
 
-export default tseslint.config({
-  plugins: {
-    // Add the react-x and react-dom plugins
-    'react-x': reactX,
-    'react-dom': reactDom,
-  },
-  rules: {
-    // other rules...
-    // Enable its recommended typescript rules
-    ...reactX.configs['recommended-typescript'].rules,
-    ...reactDom.configs.recommended.rules,
-  },
-})
-```
+---
+
+## 🧰 Tech Stack
+
+- **React** (with TypeScript)
+- **Tailwind CSS** for styling
+- **React Router DOM** for navigation
+- **Fetch API** for backend communication
+
+---
+
+## 🚀 Getting Started
+
+```bash
+git clone https://github.com/DevYoma/zora-fe.git
+cd zora-fe
+npm install
+npm run dev
