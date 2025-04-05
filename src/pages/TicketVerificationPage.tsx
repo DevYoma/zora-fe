@@ -23,6 +23,7 @@ type TicketData = {
 export default function TicketVerificationPage() {
   // @ts-ignore
   const [activeTab, setActiveTab] = useState("camera");
+  // @ts-ignore
   const [isScanning, setIsScanning] = useState(false);
    const [verificationResult, setVerificationResult] = useState<"valid" | "invalid" | null>(null);
   const [ticketCode, setTicketCode] = useState("");
@@ -33,57 +34,57 @@ export default function TicketVerificationPage() {
   const scannerDivRef = useRef(null);
   const [errorType, setErrorType] = useState<"SERVER_ERROR" | "TICKET_ALREADY_USED" | "TICKET_NOT_FOUND" | null>(null);
 
-  const startScanner = () => {
-    if (!scannerDivRef.current) return;
+  // const startScanner = () => {
+  //   if (!scannerDivRef.current) return;
     
-    try {
-      setCameraError(null);
-      setIsScanning(true);
+  //   try {
+  //     setCameraError(null);
+  //     setIsScanning(true);
       
-      // Initialize the scanner
-      scannerRef.current = new Html5QrcodeScanner(
-        "qr-reader",
-        { fps: 10, qrbox: 250 },
-        false
-      );
+  //     // Initialize the scanner
+  //     scannerRef.current = new Html5QrcodeScanner(
+  //       "qr-reader",
+  //       { fps: 10, qrbox: 250 },
+  //       false
+  //     );
       
-      // Define success callback
-      const onScanSuccess = (decodedText: string) => {
-        console.log(`QR Code scanned: ${decodedText}`);
-        stopScanner();
+  //     // Define success callback
+  //     const onScanSuccess = (decodedText: string) => {
+  //       console.log(`QR Code scanned: ${decodedText}`);
+  //       stopScanner();
         
-        // Verify the scanned ticket
-        verifyTicket(decodedText);
-      };
+  //       // Verify the scanned ticket
+  //       verifyTicket(decodedText);
+  //     };
       
-      // Define error callback
-      const onScanError = (error: string) => {
-        // Don't log errors continuously - they happen frequently during normal scanning
-        if (error !== "QR code parse error") {
-          console.error(`QR scan error: ${error}`);
-        }
-      };
+  //     // Define error callback
+  //     const onScanError = (error: string) => {
+  //       // Don't log errors continuously - they happen frequently during normal scanning
+  //       if (error !== "QR code parse error") {
+  //         console.error(`QR scan error: ${error}`);
+  //       }
+  //     };
       
-      // Start the scanner
-      scannerRef.current.render(onScanSuccess, onScanError);
-    } catch (error) {
-      console.error("Error starting scanner:", error);
-      setCameraError("Could not access camera. Please ensure you've granted camera permissions.");
-      setIsScanning(false);
-    }
-  };
+  //     // Start the scanner
+  //     scannerRef.current.render(onScanSuccess, onScanError);
+  //   } catch (error) {
+  //     console.error("Error starting scanner:", error);
+  //     setCameraError("Could not access camera. Please ensure you've granted camera permissions.");
+  //     setIsScanning(false);
+  //   }
+  // };
 
-  const stopScanner = () => {
-    if (scannerRef.current) {
-      try {
-        scannerRef.current.clear();
-        scannerRef.current = null;
-      } catch (error) {
-        console.error("Error stopping scanner:", error);
-      }
-    }
-    setIsScanning(false);
-  };
+  // const stopScanner = () => {
+  //   if (scannerRef.current) {
+  //     try {
+  //       scannerRef.current.clear();
+  //       scannerRef.current = null;
+  //     } catch (error) {
+  //       console.error("Error stopping scanner:", error);
+  //     }
+  //   }
+  //   setIsScanning(false);
+  // };
 
   const verifyTicket = async (code: string) => {
     setIsVerifying(true);
@@ -293,8 +294,10 @@ export default function TicketVerificationPage() {
                 </div>
 
                 <Button
-                  onClick={isScanning ? stopScanner : startScanner}
+                  // onClick={isScanning ? stopScanner : startScanner}
+                  onClick={() => alert("QR scanning is currently unavailable. Please use manual entry.")}
                   className="w-full bg-blue-500 hover:bg-blue-600"
+                  // className="w-full bg-blue-500 hover:bg-blue-600"
                 >
                   {isScanning ? "Cancel Scanning" : "Start Scanning"}
                 </Button>

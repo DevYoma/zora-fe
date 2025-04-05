@@ -4,10 +4,14 @@ import { Button } from "../components/ui/button";
 import {
   Card,
   CardContent,
-  CardFooter,
+  // CardFooter,
   CardHeader,
   CardTitle,
 } from "../components/ui/card";
+import nft3 from "../assets/nft3.jpg"
+import nft4 from "../assets/nft4.jpg";
+import nft5 from "../assets/nft5.jpg"
+import nft6 from "../assets/nft6.jpg"
 
 // Mock data for featured events
 const featuredEvents = [
@@ -18,7 +22,7 @@ const featuredEvents = [
     location: "San Francisco, CA",
     price: "0.05 ETH",
     available: 120,
-    image: "/placeholder.svg?height=200&width=400",
+    image: nft3
   },
   {
     id: "2",
@@ -27,7 +31,7 @@ const featuredEvents = [
     location: "New York, NY",
     price: "0.03 ETH",
     available: 75,
-    image: "/placeholder.svg?height=200&width=400",
+    image: nft4
   },
   {
     id: "3",
@@ -36,7 +40,7 @@ const featuredEvents = [
     location: "Austin, TX",
     price: "0.02 ETH",
     available: 200,
-    image: "/placeholder.svg?height=200&width=400",
+    image: nft5
   },
   {
     id: "4",
@@ -45,7 +49,7 @@ const featuredEvents = [
     location: "Miami, FL",
     price: "0.08 ETH",
     available: 50,
-    image: "/placeholder.svg?height=200&width=400",
+    image: nft6
   },
 ];
 
@@ -97,11 +101,11 @@ export default function HomePage() {
           <div className="flex flex-col items-center justify-center space-y-4 text-center">
             <div className="space-y-2">
               <h2 className="text-3xl font-bold tracking-tighter sm:text-5xl">
-                Featured Events
+                Past Events
               </h2>
               <p className="mx-auto max-w-[700px] text-muted-foreground md:text-xl">
-                Discover upcoming events with NFT tickets. Secure your spot with
-                true digital ownership.
+                Explore events that have already taken place. Relive the
+                memories and experiences.
               </p>
             </div>
           </div>
@@ -131,20 +135,13 @@ export default function HomePage() {
                     </div>
                     <div className="flex items-center">
                       <Ticket className="mr-2 h-4 w-4 opacity-70" />
-                      <span>{event.available} available</span>
+                      <span>{event.available} tickets were available</span>
                     </div>
                     <div className="mt-2 font-bold text-emerald-500">
                       {event.price}
                     </div>
                   </div>
                 </CardContent>
-                <CardFooter>
-                  <Link to={`/event/${event.id}`} className="w-full">
-                    <Button className="w-full bg-blue-600 hover:bg-blue-700">
-                      Buy Ticket <ArrowRight className="ml-2 h-4 w-4" />
-                    </Button>
-                  </Link>
-                </CardFooter>
               </Card>
             ))}
           </div>
