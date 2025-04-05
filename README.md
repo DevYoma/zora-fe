@@ -38,7 +38,6 @@ Buy tickets:
 - **React** (with TypeScript)
 - **Tailwind CSS** for styling
 - **React Router DOM** for navigation
-- **Context API** for state management
 - **Fetch API** for backend communication
 
 ---
