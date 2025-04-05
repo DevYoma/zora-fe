@@ -12,6 +12,7 @@ import nft3 from "../assets/nft3.jpg"
 import nft4 from "../assets/nft4.jpg";
 import nft5 from "../assets/nft5.jpg"
 import nft6 from "../assets/nft6.jpg"
+import ZoraIcon from "../assets/zoraIcon.jpg"
 
 // Mock data for featured events
 const featuredEvents = [
@@ -191,6 +192,62 @@ export default function HomePage() {
               <p className="text-muted-foreground">
                 Show your NFT ticket for verification at the event using our QR
                 code scanner.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="w-full py-12 md:py-24 lg:py-32 bg-gradient-to-br from-gray-800 via-gray-900 to-black">
+        <div className="container px-4 md:px-6">
+          <div className="flex flex-col items-center justify-center space-y-4 text-center">
+            <img
+              src={ZoraIcon}
+              alt="Zora Icon"
+              className="w-24 h-24 rounded-full shadow-lg"
+            />
+            <div className="space-y-2">
+              <h2 className="text-3xl font-bold tracking-tighter sm:text-5xl text-white">
+                Why Choose Zora?
+              </h2>
+              <p className="mx-auto max-w-[700px] text-gray-400 md:text-xl">
+                Zora is revolutionizing event ticketing with blockchain
+                technology. Experience secure, transparent, and decentralized
+                ticketing like never before.
+              </p>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-12">
+            <div className="flex flex-col items-center text-center space-y-4">
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-blue-500/20 text-blue-500">
+                <ArrowRight className="h-8 w-8" />
+              </div>
+              <h3 className="text-xl font-bold text-white">Decentralized</h3>
+              <p className="text-gray-400">
+                Built on blockchain, Zora ensures transparency and eliminates
+                intermediaries.
+              </p>
+            </div>
+            <div className="flex flex-col items-center text-center space-y-4">
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-purple-500/20 text-purple-500">
+                <Ticket className="h-8 w-8" />
+              </div>
+              <h3 className="text-xl font-bold text-white">True Ownership</h3>
+              <p className="text-gray-400">
+                Own your tickets as NFTs, with verifiable provenance and
+                security.
+              </p>
+            </div>
+            <div className="flex flex-col items-center text-center space-y-4">
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-500">
+                <Calendar className="h-8 w-8" />
+              </div>
+              <h3 className="text-xl font-bold text-white">
+                Seamless Experience
+              </h3>
+              <p className="text-gray-400">
+                From event creation to ticket verification, Zora makes it simple
+                and efficient.
               </p>
             </div>
           </div>

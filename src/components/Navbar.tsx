@@ -2,22 +2,17 @@
 
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Menu, X, Wallet } from "lucide-react";
+import { Menu, X } from "lucide-react";
 import { Button } from "./ui/button";
 import { ModeToggle } from "./mode-toggle";
 
-interface NavbarProps {
-  walletConnected: boolean;
-  walletAddress: string;
-  connectWallet: () => void;
+
+interface MenuState {
+  isMenuOpen: boolean;
 }
 
-export default function Navbar({
-  walletConnected,
-  walletAddress,
-  connectWallet,
-}: NavbarProps) {
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
+export default function Navbar() {
+  const [isMenuOpen, setIsMenuOpen] = useState<MenuState["isMenuOpen"]>(false);
 
   return (
     <nav className="border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -53,17 +48,17 @@ export default function Navbar({
             >
               Dashboard
             </Link>
-            <Link
+            {/* <Link
               to="/my-tickets"
               className="text-sm font-medium transition-colors hover:text-primary"
             >
               My Tickets
-            </Link>
+            </Link> */}
           </div>
         </div>
         <div className="flex items-center gap-4">
           <ModeToggle />
-          {walletConnected ? (
+          {/* {walletConnected ? (
             <Button variant="outline" className="hidden md:flex">
               <Wallet className="mr-2 h-4 w-4" />
               {walletAddress}
@@ -73,7 +68,7 @@ export default function Navbar({
               <Wallet className="mr-2 h-4 w-4" />
               Connect Wallet
             </Button>
-          )}
+          )} */}
           <Button
             variant="ghost"
             size="icon"
@@ -119,7 +114,7 @@ export default function Navbar({
             >
               Dashboard
             </Link>
-            {walletConnected ? (
+            {/* {walletConnected ? (
               <Button variant="outline" size="sm" className="justify-start">
                 <Wallet className="mr-2 h-4 w-4" />
                 {walletAddress}
@@ -133,7 +128,7 @@ export default function Navbar({
                 <Wallet className="mr-2 h-4 w-4" />
                 Connect Wallet
               </Button>
-            )}
+            )} */}
           </div>
         </div>
       )}
