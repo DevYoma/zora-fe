@@ -53,6 +53,12 @@ export default function Navbar({
             >
               Dashboard
             </Link>
+            <Link
+              to="/my-tickets"
+              className="text-sm font-medium transition-colors hover:text-primary"
+            >
+              My Tickets
+            </Link>
           </div>
         </div>
         <div className="flex items-center gap-4">

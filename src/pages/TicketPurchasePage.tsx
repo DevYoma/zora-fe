@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 
 // Extend the Window interface to include the ethereum property
 declare global {
-  interface Window {
+  interface Window {  
     ethereum?: {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       request: (args: { method: string }) => Promise<any>;
@@ -13,7 +13,37 @@ declare global {
 import { useParams, Link } from "react-router-dom";
 
 // api imports
-import { getEvent as fetchEvent, recordTicketPurchase as apiRecordTicketPurchase } from "../lib/api";
+import { getEvent as fetchEvent } from "../lib/api";
+import {
+  Calendar,
+  Clock,
+  MapPin,
+  Users,
+  Ticket,
+  ArrowRight,
+  Check,
+  AlertCircle,
+  QrCode,
+} from "lucide-react";
+import { Button } from "../components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "../components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "../components/ui/dialog";
+import { Event } from "./OrganizerDashboard";
+// @ts-ignore
+import { connectWallet, getCurrentAccount, sendTransaction,} from "../service/walletService";
+import { API_URL } from "../lib/api";
 
 export declare function getEvent(id: string): Promise<{
   id: string;
@@ -36,31 +66,10 @@ export declare function recordTicketPurchase(data: {
   purchaseTransactionHash: string;
 }): Promise<void>;
 
-import {
-  Calendar,
-  Clock,
-  MapPin,
-  Users,
-  Ticket,
-  ArrowRight,
-  Check,
-} from "lucide-react";
-import { Button } from "../components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "../components/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "../components/ui/dialog";
-import { Event } from "./OrganizerDashboard";
+type PurchasedData = {
+  ticketId: string;
+  transactionHash: string;
+};
 
 export default function TicketPurchasePage() {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -72,8 +81,10 @@ export default function TicketPurchasePage() {
   const [isPurchased, setIsPurchased] = useState(false);
   const [error, setError] = useState<null | string>(null);
   const [walletAddress, setWalletAddress] = useState("");
-  const [transactionHash, setTransactionHash] = useState("");
-  const [purchasedTokenIds, setPurchasedTokenIds] = useState<number[]>([]);
+  // const [transactionHash, setTransactionHash] = useState("");
+  // const [purchasedTokenIds, setPurchasedTokenIds] = useState<number[]>([]);
+  const [purchasedData, setPurchasedData] = useState<PurchasedData | null>(null)
+  const [isLoading, setIsLoading] = useState(true);
 
   // In a real app, you would fetch the event data based on the ID
   // const event = eventData;
@@ -84,9 +95,17 @@ export default function TicketPurchasePage() {
         const eventData = await fetchEvent(id);
         console.log(eventData)
         setEvent(eventData);
+
+        // check if wallet is connected
+        const account = await getCurrentAccount();
+        if (account) {
+          setWalletAddress(account);
+        }
       } catch (err) {
         console.error("Error loading event:", err);
         setError("Failed to load event details");
+      }finally{
+        setIsLoading(false)
       }
     }
 
@@ -95,48 +114,68 @@ export default function TicketPurchasePage() {
     }
   }, [id]);
 
-  // const totalPrice = (Number.parseFloat(event?.ticket_price) * quantity).toFixed(3);
-  const totalPrice = event
-    ? ((event.ticket_price) * quantity).toFixed(3)
-    : "0.000";
+  const handleConnectWallet = async () => {
+    try {
+      const account = await connectWallet();
+      setWalletAddress(account);
+      setError(null);
+    } catch (error) {
+      console.error("Error connecting wallet:", error);
+      setError(error instanceof Error ? error.message : "An unknown error occurred");
+    }
+  };
 
   const handlePurchase = async () => {
-    if (!event) return;
+    if (!event || !walletAddress) {
+      if (!walletAddress) {
+        setError("Please connect your wallet first");
+      }
+      return;
+    }
 
     setIsPurchasing(true);
     setError(null);
 
     try {
-      // Connect wallet and get address
-      const accounts = await window.ethereum?.request({
-        method: "eth_requestAccounts",
-      });
-      const address = accounts[0];
-      setWalletAddress(address);
+      console.log("Starting ticket purchase process");
 
-      // In a real app, you would call your blockchain function here
-      // For now, we'll simulate a blockchain transaction
-      const mockTxHash =
-        "0x" +
-        Math.random().toString(16).substring(2) +
-        Math.random().toString(16).substring(2);
-      setTransactionHash(mockTxHash);
-
-      // Generate mock token IDs (in a real app, these would come from the blockchain)
-      const mockTokenIds = Array.from(  
-        { length: quantity },
-        () => Math.floor(Math.random() * 1000) + 1
+      // 1. Send ETH transaction to event creator
+      const transaction = await sendTransaction(
+        event.creator_address,
+        event.ticket_price
       );
-      setPurchasedTokenIds(mockTokenIds);
+
+      console.log("Transaction sent:", transaction);
 
       // Record the purchase in your backend
-      await apiRecordTicketPurchase({
-        eventId: event.id,
-        tokenIds: mockTokenIds,
-        ownerAddress: address,
-        purchaseTransactionHash: mockTxHash,
+      const ticketResponse = await fetch(
+        `${API_URL}/tickets/purchase`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            eventId: id,
+            buyerAddress: walletAddress,
+            transactionHash: transaction.transactionHash,
+            price: event.ticket_price,
+          }),
+        }
+      );
+
+      if (!ticketResponse.ok) {
+        const errorData = await ticketResponse.json();
+        throw new Error(errorData.error || "Failed to record ticket purchase");
+      }
+
+      const ticketData = await ticketResponse.json();
+      console.log("Ticket purchase recorded:", ticketData);
+
+      setPurchasedData({
+        ticketId: ticketData.ticketId,
+        transactionHash: transaction.transactionHash,
       });
 
+      setIsPurchasing(false);
       setIsPurchased(true);
     } catch (err) {
       console.error("Error purchasing tickets:", err);
@@ -150,10 +189,43 @@ export default function TicketPurchasePage() {
     }
   };
 
-  console.log("TRANSACTION-HASH", transactionHash);
-  console.log("PURCHASED-TOKEN-IDS", purchasedTokenIds);
-  console.log("ERROR", error);
-  console.log(event)
+  // const totalPrice = (Number.parseFloat(event?.ticket_price) * quantity).toFixed(3);
+  const totalPrice = event ? ((event.ticket_price) * quantity).toFixed(3) : "0.000";
+
+  if (isLoading) {
+    return (
+      <div className="container py-12 flex justify-center items-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
+      </div>
+    );
+  }
+
+  if (error && !event) {
+    return (
+      <div className="container py-12">
+        <div className="bg-destructive/10 border border-destructive text-destructive p-6 rounded-md">
+          <h2 className="text-xl font-bold">Error</h2>
+          <p>{error}</p>
+          <Link to="/">
+            <Button className="mt-4">Return to Home</Button>
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (!event) {
+    return (
+      <div className="container py-12">
+        <div className="text-center">
+          <h2 className="text-xl font-bold">Event Not Found</h2>
+          <Link to="/">
+            <Button className="mt-4">Return to Home</Button>
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container py-12">
@@ -162,31 +234,32 @@ export default function TicketPurchasePage() {
         <div className="lg:col-span-2 space-y-6">
           <div className="relative w-full h-[300px] rounded-lg overflow-hidden">
             <img
-              src={event?.image_url || "/placeholder.svg"}
-              alt={event?.name}
+              src={event.image_url || "/placeholder.svg"}
+              alt={event.name}
               className="w-full h-full object-cover"
             />
           </div>
 
           <div>
-            <h1 className="text-3xl font-bold">{event?.name}</h1>
+            <h1 className="text-3xl font-bold">{event.name}</h1>
             <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-6 mt-2 text-muted-foreground">
               <div className="flex items-center">
                 <Calendar className="mr-2 h-4 w-4" />
-                {event?.date}
+                {event.date}
               </div>
               <div className="flex items-center">
                 <Clock className="mr-2 h-4 w-4" />
-                {event?.time}
+                {event.time}
               </div>
               <div className="flex items-center">
                 <MapPin className="mr-2 h-4 w-4" />
-                {event?.location}
+                {event.location}
               </div>
             </div>
             <div className="flex items-center mt-2 text-muted-foreground">
               <Users className="mr-2 h-4 w-4" />
-              Organized by {event?.name}
+              Organized by {event.creator_address.substring(0, 6)}...
+              {event.creator_address.substring(38)}
             </div>
           </div>
 
@@ -196,10 +269,20 @@ export default function TicketPurchasePage() {
             </CardHeader>
             <CardContent>
               <p className="text-muted-foreground whitespace-pre-line">
-                {event?.description}
+                {event.description}
               </p>
             </CardContent>
           </Card>
+
+          {error && (
+            <div className="bg-destructive/10 border border-destructive text-destructive p-4 rounded-md flex items-start">
+              <AlertCircle className="h-5 w-5 mr-2 mt-0.5" />
+              <div>
+                <h3 className="font-medium">Error</h3>
+                <p className="text-sm">{error}</p>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Ticket Purchase */}
@@ -216,8 +299,9 @@ export default function TicketPurchasePage() {
                     <span className="text-muted-foreground">Available:</span>
                   </div>
                   <span className="font-medium">
-                    {/* {event?.available_tickets} of {event?.ticket_quantity} */}
-                    {event ? event.available_tickets - quantity : 0} of {event?.ticket_quantity}
+                    {/* {event.available_tickets} of {event.ticket_quantity} */}
+                    {event ? event.available_tickets - quantity : 0} of{" "}
+                    {event?.ticket_quantity}
                   </span>
                 </div>
 
@@ -226,7 +310,7 @@ export default function TicketPurchasePage() {
                     Price per ticket:
                   </span>
                   <span className="font-bold text-lg text-blue-500">
-                    {event?.ticket_price} ETH
+                    {event.ticket_price} ETH
                   </span>
                 </div>
 
@@ -238,7 +322,7 @@ export default function TicketPurchasePage() {
                       size="icon"
                       className="h-8 w-8"
                       onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                      disabled={quantity <= 1 || isPurchased}
+                      disabled={quantity <= 1 || isPurchased || isPurchasing}
                     >
                       -
                     </Button>
@@ -247,8 +331,16 @@ export default function TicketPurchasePage() {
                       variant="outline"
                       size="icon"
                       className="h-8 w-8"
-                      onClick={() => setQuantity(Math.min(10, quantity + 1))}
-                      disabled={quantity >= 10 || isPurchased}
+                      onClick={() =>
+                        setQuantity(
+                          Math.min(event.available_tickets, quantity + 1)
+                        )
+                      }
+                      disabled={
+                        quantity >= event.available_tickets ||
+                        isPurchased ||
+                        isPurchasing
+                      }
                     >
                       +
                     </Button>
@@ -263,7 +355,7 @@ export default function TicketPurchasePage() {
                     </span>
                   </div>
                   <div className="text-xs text-muted-foreground mt-1">
-                    Plus gas fees for the NFT mint
+                    Plus gas fees for the transaction
                   </div>
                 </div>
 
@@ -275,7 +367,7 @@ export default function TicketPurchasePage() {
                         Purchase Successful!
                       </p>
                       <p className="text-sm text-muted-foreground mt-1">
-                        Your NFT tickets have been sent to your wallet.
+                        Your ticket has been purchased successfully.
                       </p>
                     </div>
 
@@ -287,7 +379,7 @@ export default function TicketPurchasePage() {
                       </DialogTrigger>
                       <DialogContent className="sm:max-w-md">
                         <DialogHeader>
-                          <DialogTitle>Your NFT Ticket</DialogTitle>
+                          <DialogTitle>Your Ticket</DialogTitle>
                           <DialogDescription>
                             Present this QR code at the event entrance
                           </DialogDescription>
@@ -298,27 +390,32 @@ export default function TicketPurchasePage() {
                               <div className="flex-1 flex flex-col justify-between">
                                 <div>
                                   <h3 className="text-xl font-bold text-white truncate">
-                                    {event?.name}
+                                    {event.name}
                                   </h3>
                                   <div className="mt-2 flex items-center text-white/70">
                                     <Calendar className="mr-2 h-4 w-4" />
-                                    <span>{event?.date}</span>
+                                    <span>{event.date}</span>
                                   </div>
                                   <div className="mt-1 flex items-center text-white/70">
                                     <Clock className="mr-2 h-4 w-4" />
-                                    <span>{event?.time}</span>
+                                    <span>{event.time}</span>
                                   </div>
                                   <div className="mt-1 flex items-center text-white/70">
                                     <MapPin className="mr-2 h-4 w-4" />
-                                    <span>{event?.location}</span>
+                                    <span>{event.location}</span>
                                   </div>
                                 </div>
 
                                 <div className="mt-4 bg-white/10 rounded-lg p-4 flex items-center justify-center">
                                   <div className="w-32 h-32 bg-white flex items-center justify-center">
-                                    <span className="text-xs text-gray-500">
-                                      QR Code
-                                    </span>
+                                    <QrCode
+                                      values={JSON.stringify({
+                                        ticketId: purchasedData?.ticketId,
+                                        eventId: id,
+                                        buyerAddress: walletAddress,
+                                      })}
+                                      size={120}
+                                    />
                                   </div>
                                 </div>
                               </div>
@@ -350,33 +447,56 @@ export default function TicketPurchasePage() {
                       </DialogContent>
                     </Dialog>
 
-                    <Button variant="outline" className="w-full">
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      onClick={() =>
+                        window.open(
+                          `https://etherscan.io/tx/${purchasedData?.transactionHash}`,
+                          "_blank"
+                        )
+                      }
+                    >
                       View on Etherscan
                     </Button>
                   </div>
                 ) : (
-                  <Button
-                    className="w-full bg-blue-500 hover:bg-blue-600"
-                    onClick={handlePurchase}
-                    disabled={isPurchasing}
-                  >
-                    {isPurchasing ? (
-                      <>
-                        <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"></div>
-                        Purchasing...
-                      </>
-                    ) : (
-                      <>
-                        Buy Tickets <ArrowRight className="ml-2 h-4 w-4" />
-                      </>
+                  <>
+                    {!walletAddress && (
+                      <Button
+                        className="w-full bg-blue-500 hover:bg-blue-600"
+                        onClick={handleConnectWallet}
+                      >
+                        Connect Wallet
+                      </Button>
                     )}
-                  </Button>
+
+                    {walletAddress && (
+                      <Button
+                        className="w-full bg-blue-500 hover:bg-blue-600"
+                        onClick={handlePurchase}
+                        disabled={isPurchasing || event.available_tickets <= 0}
+                      >
+                        {isPurchasing ? (
+                          <>
+                            <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"></div>
+                            Purchasing...
+                          </>
+                        ) : event.available_tickets <= 0 ? (
+                          "Sold Out"
+                        ) : (
+                          <>
+                            Buy Tickets <ArrowRight className="ml-2 h-4 w-4" />
+                          </>
+                        )}
+                      </Button>
+                    )}
+                  </>
                 )}
 
                 <div className="text-xs text-muted-foreground">
                   By purchasing tickets, you agree to our Terms of Service and
-                  Privacy Policy. Each ticket will be minted as an NFT on the
-                  Ethereum blockchain using Zora.
+                  Privacy Policy.
                 </div>
               </CardContent>
             </Card>

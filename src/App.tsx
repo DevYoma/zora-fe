@@ -8,6 +8,7 @@ import { Footer } from "./components/Footer";
 import TicketPurchasePage from "./pages/TicketPurchasePage";
 import TicketVerificationPage from "./pages/TicketVerificationPage";
 import OrganizerDashboard from "./pages/OrganizerDashboard";
+import UserTicketsPage from "./pages/UserTicketPage";
 
 function App() {
   const [walletConnected, setWalletConnected] = useState(false);
@@ -35,8 +36,9 @@ function App() {
             <Route path="/event/:id" element={<TicketPurchasePage />} />
             <Route path="/verify" element={<TicketVerificationPage />} />
             <Route path="/dashboard" element={<OrganizerDashboard />} />
+            <Route path="/my-tickets" element={<UserTicketsPage />} />
           </Routes>
-          <Footer />  
+          <Footer />
         </div>
       </Router>
     </ThemeProvider>

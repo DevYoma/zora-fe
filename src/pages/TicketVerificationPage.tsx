@@ -1,30 +1,14 @@
-import { useState, useEffect, useRef } from "react";
-import {
-  Camera,
-  QrCode,
-  CheckCircle,
-  XCircle,
-  Ticket,
-  ArrowLeft,
-} from "lucide-react";
+// File: src/pages/TicketVerificationPage.jsx
+import { useState, useRef, useEffect } from "react";
+import { Camera, QrCode, CheckCircle, XCircle, Ticket, ArrowLeft } from 'lucide-react';
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
-import {
-  Card,
-  CardContent,
-  // CardHeader,
-  // CardTitle,
-} from "../components/ui/card";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "../components/ui/tabs";
+import { Card, CardContent } from "../components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import { Link } from "react-router-dom";
-import { verifyTicket } from "../lib/api";
-import { Html5Qrcode } from "html5-qrcode";
+import { Html5QrcodeScanner } from "html5-qrcode";
+import { API_URL } from "../lib/api";
 
 type TicketData = {
   id: string;
@@ -32,143 +16,130 @@ type TicketData = {
   events: {
     name: string;
   };
+  message?: string;
+  usedAt?: string;
 };
 
 export default function TicketVerificationPage() {
+  // @ts-ignore
   const [activeTab, setActiveTab] = useState("camera");
-  console.log(activeTab)
   const [isScanning, setIsScanning] = useState(false);
-  const [verificationResult, setVerificationResult] = useState<
-    "valid" | "invalid" | null
-  >(null);
+   const [verificationResult, setVerificationResult] = useState<"valid" | "invalid" | null>(null);
   const [ticketCode, setTicketCode] = useState("");
   const [cameraError, setCameraError] = useState<string | null>(null);
-  const [ticketData, setTicketData] = useState<TicketData | null>(null); // this needs to be typed and gotten from the API
-  const [error, setError] = useState<string | null>(null);
+  const [ticketData, setTicketData] = useState<TicketData | null>(null);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const scannerRef = useRef<Html5QrcodeScanner | null>(null);
+  const scannerDivRef = useRef(null);
+  const [errorType, setErrorType] = useState<"SERVER_ERROR" | "TICKET_ALREADY_USED" | "TICKET_NOT_FOUND" | null>(null);
 
-  const scannerRef = useRef<Html5Qrcode | null>(null);
-  const scannerContainerId = "qr-reader";
-
-  // Clean up scanner when component unmounts
-  useEffect(() => {
-    return () => {
-      if (scannerRef.current && isScanning) {
-        scannerRef.current.stop().catch((error) => {
-          console.error("Error stopping scanner:", error);
-        });
-      }
-    };
-  }, [isScanning]);
-
-  const startScanning = async () => {
+  const startScanner = () => {
+    if (!scannerDivRef.current) return;
+    
     try {
       setCameraError(null);
-      setError(null);
-
-      if (!scannerRef.current) {
-        scannerRef.current = new Html5Qrcode(scannerContainerId);
-      }
-
-      const qrCodeSuccessCallback = async (decodedText: string) => {
-        try {
-          console.log("QR Code detected:", decodedText);
-
-          // Stop scanning
-          await stopScanning();
-
-          // Try to parse the QR code data
-          let ticketId;
-          try {
-            // First try to parse as JSON
-            const parsedData = JSON.parse(decodedText);
-            ticketId = parsedData.id || parsedData.ticketId;
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars
-          } catch (e) {
-            // If not JSON, use the raw text as ticket ID
-            ticketId = decodedText;
-          }
-
-          if (!ticketId) {
-            throw new Error("Invalid QR code format. No ticket ID found.");
-          }
-
-          // Verify the ticket using the API
-          const verification = await verifyTicket(ticketId);
-
-          setTicketData(verification.ticket);
-          setVerificationResult("valid");
-        } catch (err) {
-          console.error("Error processing QR code:", err);
-          setVerificationResult("invalid");
-          if (err instanceof Error) {
-            setError(err instanceof Error ? err.message : "Failed to verify ticket");
-          } else {
-            setError("Failed to verify ticket");
-          }
+      setIsScanning(true);
+      
+      // Initialize the scanner
+      scannerRef.current = new Html5QrcodeScanner(
+        "qr-reader",
+        { fps: 10, qrbox: 250 },
+        false
+      );
+      
+      // Define success callback
+      const onScanSuccess = (decodedText: string) => {
+        console.log(`QR Code scanned: ${decodedText}`);
+        stopScanner();
+        
+        // Verify the scanned ticket
+        verifyTicket(decodedText);
+      };
+      
+      // Define error callback
+      const onScanError = (error: string) => {
+        // Don't log errors continuously - they happen frequently during normal scanning
+        if (error !== "QR code parse error") {
+          console.error(`QR scan error: ${error}`);
         }
       };
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const qrCodeErrorCallback = (error: any) => {
-        console.error("QR Code scanning error:", error);
-        setCameraError(error.toString());
-      };
-
-      const config = { fps: 10, qrbox: { width: 250, height: 250 } };
-
-      await scannerRef.current.start(
-        { facingMode: "environment" },
-        config,
-        qrCodeSuccessCallback,
-        qrCodeErrorCallback
-      );
-
-      setIsScanning(true);
+      
+      // Start the scanner
+      scannerRef.current.render(onScanSuccess, onScanError);
     } catch (error) {
       console.error("Error starting scanner:", error);
-      setCameraError(
-        "Could not access camera. Please ensure you've granted camera permissions."
-      );
+      setCameraError("Could not access camera. Please ensure you've granted camera permissions.");
       setIsScanning(false);
     }
   };
 
-  const stopScanning = async () => {
-    if (scannerRef.current && isScanning) {
+  const stopScanner = () => {
+    if (scannerRef.current) {
       try {
-        await scannerRef.current.stop();
-        setIsScanning(false);
+        scannerRef.current.clear();
+        scannerRef.current = null;
       } catch (error) {
         console.error("Error stopping scanner:", error);
       }
     }
+    setIsScanning(false);
   };
 
-  const verifyManualCode = async () => {
-    if (!ticketCode.trim()) return;
+  const verifyTicket = async (code: string) => {
+    setIsVerifying(true);
+    // const parsedCode = parseInt(code)
+
+    console.log("Sending verification request for code: ", code);
 
     try {
-      setError(null);
+      // Send the raw code to the backend for verification
+      const response = await fetch(`${API_URL}/tickets/verify-code`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code }),
+      });
 
-      // Verify the ticket using the API
-      const verification = await verifyTicket(ticketCode);
+      const data = await response.json();
+      console.log("Verification response:", data);
 
-      setTicketData(verification.ticket);
-      setVerificationResult("valid");
-    } catch (err) {
-      console.error("Error verifying ticket:", err);
+      if (data.valid) {
+        setVerificationResult("valid");
+        setTicketData(data.ticket);
+        setErrorType(null);
+      } else {
+        setVerificationResult("invalid");
+        setTicketData(data);
+        setErrorType(data.errorType);
+      }
+    } catch (error) {
+      console.error("Error verifying ticket:", error);
       setVerificationResult("invalid");
-      setError(err instanceof Error ? err.message : "Failed to verify ticket");
+      setErrorType("SERVER_ERROR");
+    } finally {
+      setIsVerifying(false);  
     }
+  };
+
+  const verifyManualCode = () => {
+    if (ticketCode.trim() === "") return;
+    verifyTicket(ticketCode);
   };
 
   const resetVerification = () => {
     setVerificationResult(null);
     setTicketCode("");
     setCameraError(null);
-    setError(null);
     setTicketData(null);
   };
+
+  // Clean up scanner when component unmounts
+  useEffect(() => {
+    return () => {
+      if (scannerRef.current) {
+        scannerRef.current.clear();
+      }
+    };
+  }, []);
 
   return (
     <div className="container max-w-md py-12">
@@ -200,42 +171,32 @@ export default function TicketVerificationPage() {
                     </h2>
 
                     <div className="w-full bg-muted/30 rounded-lg p-4 text-left space-y-3">
-                      {ticketData && (
-                        <>
-                          <div>
-                            <p className="text-xs text-muted-foreground">
-                              Event
-                            </p>
-                            <p className="font-medium">
-                              {ticketData.events?.name || "Event Name"}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-muted-foreground">
-                              Ticket ID
-                            </p>
-                            <p className="font-mono text-sm">
-                              {ticketData.id || ticketCode}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-muted-foreground">
-                              Owner
-                            </p>
-                            <p className="font-mono text-sm truncate">
-                              {ticketData.owner_address || "Owner Address"}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-muted-foreground">
-                              Status
-                            </p>
-                            <p className="font-medium text-emerald-500">
-                              Valid - First Entry
-                            </p>
-                          </div>
-                        </>
-                      )}
+                      <div>
+                        <p className="text-xs text-muted-foreground">Event</p>
+                        <p className="font-medium">
+                          {ticketData?.events.name || "Event Name"}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">
+                          Ticket ID
+                        </p>
+                        <p className="font-mono text-sm">
+                          {ticketData?.id || "Ticket ID"}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Owner</p>
+                        <p className="font-mono text-sm truncate">
+                          {ticketData?.owner_address || "Owner Address"}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Status</p>
+                        <p className="font-medium text-emerald-500">
+                          Valid - First Entry
+                        </p>
+                      </div>
                     </div>
                   </>
                 ) : (
@@ -243,13 +204,43 @@ export default function TicketVerificationPage() {
                     <div className="flex h-16 w-16 items-center justify-center rounded-full bg-destructive/20 text-destructive">
                       <XCircle className="h-8 w-8" />
                     </div>
-                    <h2 className="text-2xl font-bold text-destructive">
-                      Invalid Ticket
-                    </h2>
-                    <p className="text-muted-foreground">
-                      {error ||
-                        "This ticket is invalid or has already been used."}
-                    </p>
+
+                    {errorType === "TICKET_ALREADY_USED" ? (
+                      <>
+                        <h2 className="text-2xl font-bold text-destructive">
+                          Ticket Already Used
+                        </h2>
+                        <p className="text-muted-foreground">
+                          {ticketData?.message ||
+                            "This ticket has already been scanned and used."}
+                        </p>
+                        {ticketData?.usedAt && (
+                          <p className="text-sm text-muted-foreground mt-1">
+                            Used on:{" "}
+                            {new Date(ticketData.usedAt).toLocaleString()}
+                          </p>
+                        )}
+                      </>
+                    ) : errorType === "TICKET_NOT_FOUND" ? (
+                      <>
+                        <h2 className="text-2xl font-bold text-destructive">
+                          Ticket Not Found
+                        </h2>
+                        <p className="text-muted-foreground">
+                          {ticketData?.message ||
+                            "This ticket does not exist in our system."}
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <h2 className="text-2xl font-bold text-destructive">
+                          Invalid Ticket
+                        </h2>
+                        <p className="text-muted-foreground">
+                          {ticketData?.message || "This ticket is invalid."}
+                        </p>
+                      </>
+                    )}
                   </>
                 )}
 
@@ -260,15 +251,6 @@ export default function TicketVerificationPage() {
                   >
                     Verify Another Ticket
                   </Button>
-
-                  {verificationResult === "valid" && (
-                    <Button
-                      variant="outline"
-                      className="w-full border-emerald-500/50 text-emerald-500 hover:bg-emerald-500/10"
-                    >
-                      Mark as Used
-                    </Button>
-                  )}
                 </div>
               </div>
             </CardContent>
@@ -288,32 +270,30 @@ export default function TicketVerificationPage() {
               </TabsList>
 
               <TabsContent value="camera" className="p-6 space-y-4">
-                <div className="relative bg-muted/30 rounded-lg aspect-square overflow-hidden flex flex-col items-center justify-center">
-                  <div id={scannerContainerId} className="w-full h-full">
-                    {!isScanning && (
-                      <div className="absolute inset-0 flex flex-col items-center justify-center bg-background z-10 p-6">
-                        <Camera className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
-                        <p className="text-muted-foreground text-center">
-                          Camera preview will appear here
+                <div className="relative bg-muted/30 rounded-lg overflow-hidden flex flex-col items-center justify-center">
+                  {isScanning ? (
+                    <div
+                      id="qr-reader"
+                      ref={scannerDivRef}
+                      className="w-full"
+                    ></div>
+                  ) : (
+                    <div className="text-center p-6 aspect-square flex flex-col items-center justify-center">
+                      <Camera className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
+                      <p className="text-muted-foreground">
+                        Camera preview will appear here
+                      </p>
+                      {cameraError && (
+                        <p className="mt-2 text-sm text-destructive">
+                          {cameraError}
                         </p>
-                        {cameraError && (
-                          <p className="mt-2 text-sm text-destructive text-center">
-                            {cameraError}
-                          </p>
-                        )}
-                      </div>
-                    )}
-                  </div>
-
-                  {isScanning && (
-                    <div className="absolute inset-0 pointer-events-none">
-                      <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-64 h-64 border-2 border-white/70 rounded-lg"></div>
+                      )}
                     </div>
                   )}
                 </div>
 
                 <Button
-                  onClick={isScanning ? stopScanning : startScanning}
+                  onClick={isScanning ? stopScanner : startScanner}
                   className="w-full bg-blue-500 hover:bg-blue-600"
                 >
                   {isScanning ? "Cancel Scanning" : "Start Scanning"}
@@ -343,14 +323,21 @@ export default function TicketVerificationPage() {
 
                 <Button
                   onClick={verifyManualCode}
-                  disabled={!ticketCode.trim()}
+                  disabled={!ticketCode.trim() || isVerifying}
                   className="w-full bg-blue-500 hover:bg-blue-600"
                 >
-                  Verify Ticket
+                  {isVerifying ? (
+                    <>
+                      <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"></div>
+                      Verifying...
+                    </>
+                  ) : (
+                    "Verify Ticket"
+                  )}
                 </Button>
 
                 <div className="text-xs text-muted-foreground text-center">
-                  Enter the ticket ID, NFT token ID, or wallet address
+                  Enter the ticket ID, wallet address, or scan the QR code
                 </div>
               </TabsContent>
             </Tabs>
