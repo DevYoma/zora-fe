@@ -4,6 +4,9 @@ This is the frontend of **Zora**, a Web3-enabled event ticketing app where users
 
 ---
 
+## Zora Frontend Link
+https://zora-fe.vercel.app
+
 ## 🧪 Pages Overview
 ![zora1](https://github.com/user-attachments/assets/03e0019d-bae6-45fd-a368-08964e9d8b82)
 
@@ -14,6 +17,9 @@ This is the frontend of **Zora**, a Web3-enabled event ticketing app where users
 ![zora4](https://github.com/user-attachments/assets/2771d3e3-673d-4bad-9dac-a6dad6dd9fcb)
 
 ![zora5](https://github.com/user-attachments/assets/08da9d70-55a1-4cff-96c0-a2bf3ba79bcc)
+
+## Video Overview
+
 
 ### 🏠 Home Page
 Introductory page explaining the purpose of the platform.
